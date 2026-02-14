@@ -1,0 +1,9 @@
+runtime:
+  mode: sequential
+model:
+  quantization: null
+  gradient_checkpointing: false
+  path: "assets/models/Qwen3-1.7B"
+tasks:
+  name: "gsm8k"
+  max_examples: 3

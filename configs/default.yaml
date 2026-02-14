@@ -1,0 +1,73 @@
+seed: 0
+
+model:
+  path: ""
+  dtype: "bfloat16"           # float16 | bfloat16 | float32
+  attn_implementation: "sdpa" # sdpa | flash_attention_2 (if supported)
+  quantization: null          # null | "8bit" | "4bit"
+  gradient_checkpointing: false
+  compile: false
+
+agents:
+  num_agents: 3
+  roles:
+    - "You are Agent 1. Solve the problem carefully."
+    - "You are Agent 2. Look for alternative solution paths and check calculations."
+    - "You are Agent 3. Critique others and propose fixes if needed."
+  rounds: 2
+  max_new_tokens: 256
+  temperature: 0.2
+  top_p: 0.95
+
+thoughtcomm:
+  enabled: true
+  nz: 1024
+  prefix_len: 1
+  agreement_weights: "linear"    # linear | uniform | custom
+  custom_weights: {}
+
+  # Optional pretrained modules (if set, run will inject prefixes from round>=2)
+  ae_ckpt: null
+  struct_mask: null
+  adapter_ckpt: null
+
+autoencoder:
+  hidden: 2048
+  depth: 2
+  dropout: 0.0
+  lr: 1.0e-3
+  batch_size: 64
+  epochs: 10
+  grad_accum: 1
+  jacobian_lambda: 1.0e-3
+  jacobian_mode: "sampled_rows"   # sampled_rows | exact
+  jacobian_rows_k: 256
+  mask_threshold: 1.0e-4
+  save_every_epochs: 1
+
+adapter:
+  hidden: 2048
+  depth: 2
+  lr: 1.0e-4
+  batch_size: 8
+  epochs: 2
+  grad_accum: 1
+  continuation_max_new_tokens: 32   # brief continuation for Eq.(12)
+  continuation_temperature: 0.7
+  continuation_top_p: 0.95
+  lambda_sem: 1.0                   # weight on (1-cos)
+  lambda_flu: 1.0                   # weight on -log p(y_gen|...)
+  cache_dir: ".cache/thoughtcomm"   # for y_ref continuations
+
+runtime:
+  mode: "sequential"  # sequential | parallel
+  device: "cuda"
+  log_every: 10
+  artifacts_dir: "artifacts"
+  run_name: null
+
+task:
+  name: "gsm8k"      # gsm8k | math | custom_jsonl
+  split: "test"
+  max_examples: 20
+  custom_path: null

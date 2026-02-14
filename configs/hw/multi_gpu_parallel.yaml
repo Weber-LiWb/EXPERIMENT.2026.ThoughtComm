@@ -1,0 +1,4 @@
+runtime:
+  mode: parallel
+agents:
+  num_agents: 3
