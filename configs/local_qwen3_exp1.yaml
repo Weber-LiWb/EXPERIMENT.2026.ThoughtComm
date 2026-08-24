@@ -1,0 +1,71 @@
+# Local resource wiring only.
+# This file points the upstream implementation at the cached Qwen3 weights
+# available in this workspace and keeps the paper-facing Exp-1 dimensions.
+
+seed: 42
+
+model:
+  path: "/home/weiboli@asurite.ad.asu.edu/.cache/huggingface/hub/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
+  dtype: "float32"          # CPU-safe in the current environment; use float16 on CUDA.
+  attn_implementation: "sdpa"
+  quantization: null
+  gradient_checkpointing: false
+  compile: false
+
+agents:
+  num_agents: 3
+  rounds: 2
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.95
+
+thoughtcomm:
+  enabled: true
+  nz: 1024
+  prefix_len: 1
+  agreement_weights: "linear"
+  custom_weights: {}
+  ae_ckpt: null
+  struct_mask: null
+  adapter_ckpt: null
+
+autoencoder:
+  hidden: 2048
+  depth: 2
+  dropout: 0.0
+  lr: 1.0e-4
+  batch_size: 16
+  epochs: 50
+  grad_accum: 1
+  jacobian_lambda: 1.0e-3
+  jacobian_mode: "sampled_rows"
+  jacobian_rows_k: 64
+  mask_threshold: 1.0e-4
+  save_every_epochs: 1
+
+adapter:
+  hidden: 2048
+  depth: 2
+  lr: 1.0e-4
+  batch_size: 1
+  epochs: 20
+  grad_accum: 8
+  continuation_max_new_tokens: 32
+  continuation_temperature: 0.7
+  continuation_top_p: 0.95
+  lambda_sem: 1.0
+  lambda_flu: 1.0
+  cache_dir: "artifacts/local_qwen3_exp1/cache"
+
+runtime:
+  mode: "sequential"
+  device: "cpu"            # the active PyTorch CUDA driver is unavailable.
+  log_every: 10
+  artifacts_dir: "artifacts/local_qwen3_exp1"
+  run_name: "qwen3_exp1_local"
+
+task:
+  name: "math"
+  split: "train"
+  max_examples: 500
+  custom_path: null
