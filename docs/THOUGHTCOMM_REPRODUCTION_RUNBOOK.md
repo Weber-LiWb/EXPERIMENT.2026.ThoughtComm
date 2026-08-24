@@ -130,11 +130,13 @@ time limit, and public GPU jobs should use the `public` QoS. It documents
 
 The tracked `scripts/submit_adapter_public_a100.sbatch` therefore requests two
 80 GiB A100s on one node with `-p public -q public -N 1 -G a100:2` and runs one adapter epoch per
-job. On the local 1024-token smoke, one state with 32-token continuation took
-about 414 seconds, so 1000 states are roughly 115 GPU-hours per epoch before
-cluster/model differences. Twenty epochs cannot fit in one public job; use the
-checkpoint chain below. The script defaults to the full merged context; fall
-back to `contexts_1024` if the A100 memory test says the full path does not fit.
+job. The unchanged upstream loop defaults to `adapter.grad_accum=8` and
+retains long-context autograd graphs across states. The first full-context
+A100 run completed state 0, then OOMed at state 1. Keep upstream code unchanged
+and pass `adapter.grad_accum=1` via `THOUGHTCOMM_OVERRIDES` for the cluster run.
+The script defaults to the full merged context; fall back to `contexts_1024`
+only if a memory smoke says the full resource does not fit. Twenty epochs use
+the checkpoint chain below.
 
 Before submission:
 
@@ -154,7 +156,7 @@ Before submission:
 export THOUGHTCOMM_CONTEXTS_PATH=artifacts/full_qwen3_exp1/adapter_smoke/contexts.jsonl
 export THOUGHTCOMM_STATES_PATH=artifacts/full_qwen3_exp1/adapter_smoke/states.pt
 export THOUGHTCOMM_OVERRIDES='model.attn_implementation=eager adapter.epochs=1 adapter.continuation_max_new_tokens=2 adapter.grad_accum=1'
-sbatch -p public -q debug -t 0-15 scripts/submit_adapter_public_a100.sbatch
+sbatch -p public -q debug -t 15 scripts/submit_adapter_public_a100.sbatch
 ```
 
 7. After the smoke succeeds, submit the one-epoch chain without putting
@@ -163,6 +165,7 @@ sbatch -p public -q debug -t 0-15 scripts/submit_adapter_public_a100.sbatch
 ```bash
 export THOUGHTCOMM_MODEL_PATH=/cluster/path/Qwen3-1.7B
 export PYTHON_BIN=/cluster/path/venv/bin/python
+export THOUGHTCOMM_OVERRIDES='model.attn_implementation=eager adapter.epochs=1 adapter.grad_accum=1'
 unset THOUGHTCOMM_CONTEXTS_PATH THOUGHTCOMM_STATES_PATH THOUGHTCOMM_ADAPTER_CKPT
 export THOUGHTCOMM_EPOCH=1
 prev=""
@@ -189,7 +192,7 @@ optimizer; this is a weight-continuation protocol, not a bit-exact optimizer
 state resume. If exact AdamW continuation is required, the upstream trainer
 must additionally persist optimizer state at epoch boundaries.
 
-The job writes `logs/thoughtcomm-adapter-<jobid>.out` and checkpoints under the
+The job writes `logs/thoughtcomm-adapter_<jobid>.out` and `.err` plus checkpoints under the
 configured output directory. Monitor with `squeue`, `sacct`, and `seff`; ASU's
 job-statistics guide notes that live GPU usage is best inspected on the running
 compute node, while `sacct`/`seff` are for completed jobs.
