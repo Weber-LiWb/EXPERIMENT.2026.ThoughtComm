@@ -114,11 +114,11 @@ export THOUGHTCOMM_OVERRIDES='model.attn_implementation=sdpa'
 CUDA_VISIBLE_DEVICES=0,1 python scripts/run_adapter_2gpu_runtime.py
 ```
 
-For Sol, the validated setup is one A100 on one node. Set
-`THOUGHTCOMM_SINGLE_GPU=1` and let Slurm expose the allocated card as logical
-CUDA device 0. Two A100s remain supported by clearing that variable and
-requesting `-G a100:2`; do not request separate nodes. Verify the cluster GPU
-resource syntax first.
+For Sol, the validated full-context setup is two A100s on one node.
+The short one-card smoke uses `THOUGHTCOMM_SINGLE_GPU=1`; the full run leaves
+that variable empty so the launcher splits layers across logical CUDA devices 0 and 1.
+Request two A100s with `-G a100:2`; do not request separate nodes. Verify the
+cluster GPU resource syntax first.
 
 ## Sol/A100 handoff
 
@@ -129,15 +129,14 @@ time limit, and public GPU jobs should use the `public` QoS. It documents
 [partition/QoS guide](https://docs.rc.asu.edu/partitions-and-qos/), and
 [Sol hardware table](https://docs.rc.asu.edu/supercomputer-hardware/).
 
-The tracked `scripts/submit_adapter_public_a100.sbatch` requests one
-80 GiB A100 with `-p public -q public -N 1 -G a100:1` and runs one adapter epoch per
+The tracked `scripts/submit_adapter_public_a100.sbatch` requests two
+80 GiB A100s with `-p public -q public -N 1 -G a100:2` and runs one adapter epoch per
 job. The unchanged upstream loop defaults to `adapter.grad_accum=8` and
-retains long-context autograd graphs across states. The first full-context
-A100 run completed state 0, then OOMed at state 1. Keep upstream code unchanged;
-the validated cluster path uses native SDPA plus `adapter.grad_accum=1` via
-`THOUGHTCOMM_OVERRIDES`. The script defaults to the full merged context; fall back to
-`contexts_1024` only if a memory smoke says the full resource does not fit.
-Twenty epochs use the checkpoint chain below.
+retains long-context autograd graphs across states. The one-A100 short smoke
+passed with `max_new_tokens=2`, but the first full-context run OOMed on the
+first state at the real 32-token continuation length. Use native SDPA plus
+`adapter.grad_accum=1` via `THOUGHTCOMM_OVERRIDES`; the full merged context
+is the default resource, and twenty epochs use the checkpoint chain below.
 
 Before submission:
 
@@ -148,7 +147,7 @@ Before submission:
 4. Activate an environment containing PyTorch, Transformers, Accelerate,
    OmegaConf, Transformers-compatible Qwen3 support, and tqdm.
 5. Check `sinfo`/`scontrol` for the site's current A100 availability. For this
-   job use the documented single-GPU syntax `-G a100:1`; do not replace it with
+   job use the documented multi-GPU syntax `-G a100:2`; do not replace it with
    an unverified GRES name.
 6. Submit a short debug smoke first. ASU documents `debug` QoS as the fast
    syntax/path check with a 15-minute limit:
@@ -167,7 +166,7 @@ sbatch -p public -q debug -t 15 -G a100:1 scripts/submit_adapter_public_a100.sba
 ```bash
 export THOUGHTCOMM_MODEL_PATH=/cluster/path/Qwen3-1.7B
 export PYTHON_BIN=/cluster/path/venv/bin/python
-export THOUGHTCOMM_SINGLE_GPU=1
+unset THOUGHTCOMM_SINGLE_GPU
 export THOUGHTCOMM_OVERRIDES='model.attn_implementation=sdpa adapter.epochs=1 adapter.grad_accum=1'
 unset THOUGHTCOMM_CONTEXTS_PATH THOUGHTCOMM_STATES_PATH THOUGHTCOMM_ADAPTER_CKPT
 export THOUGHTCOMM_EPOCH=1

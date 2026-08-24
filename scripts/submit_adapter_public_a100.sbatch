@@ -3,7 +3,7 @@
 #SBATCH -p public
 #SBATCH -q public
 #SBATCH -N 1
-#SBATCH -G a100:1
+#SBATCH -G a100:2
 #SBATCH -c 24
 #SBATCH --mem=128G
 #SBATCH -t 7-0
@@ -29,8 +29,8 @@ export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:T
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 # Slurm assigns the allocated GPU(s) and sets CUDA_VISIBLE_DEVICES.
-# Default to the validated one-A100 path; pass an empty value for a two-card run.
-export THOUGHTCOMM_SINGLE_GPU="${THOUGHTCOMM_SINGLE_GPU-1}"
+# Full-context runs use two A100s; set THOUGHTCOMM_SINGLE_GPU=1 only for a one-card smoke.
+export THOUGHTCOMM_SINGLE_GPU="${THOUGHTCOMM_SINGLE_GPU-}"
 
 export THOUGHTCOMM_MODEL_DTYPE="float32"
 export THOUGHTCOMM_GRAD_CLIP="1"
