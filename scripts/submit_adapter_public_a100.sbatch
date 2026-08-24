@@ -7,7 +7,8 @@
 #SBATCH -c 24
 #SBATCH --mem=128G
 #SBATCH -t 7-0
-#SBATCH --output=logs/%x-%j.out
+#SBATCH --output=logs/%x_%j.out
+#SBATCH --error=logs/%x_%j.err
 #SBATCH --signal=B:USR1@60
 
 set -euo pipefail
@@ -15,6 +16,13 @@ set -euo pipefail
 REPO_DIR="${SLURM_SUBMIT_DIR}"
 cd "${REPO_DIR}"
 mkdir -p logs
+
+# Keep the runtime's caches and any tokenizer metadata off the home quota.
+export HF_HOME="${HF_HOME:-/scratch/${USER}/hf_cache}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/scratch/${USER}/xdg_cache}"
+mkdir -p "${HF_HOME}" "${XDG_CACHE_HOME}"
+export PYTHONUNBUFFERED=1
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 # Set these in the submission environment; never put credentials in this file.
 : "${THOUGHTCOMM_MODEL_PATH:?Set THOUGHTCOMM_MODEL_PATH to a local cached Qwen3 snapshot}"
