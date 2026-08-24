@@ -3,7 +3,7 @@
 #SBATCH -p public
 #SBATCH -q public
 #SBATCH -N 1
-#SBATCH -G a100:2
+#SBATCH -G a100:1
 #SBATCH -c 24
 #SBATCH --mem=128G
 #SBATCH -t 7-0
@@ -28,8 +28,10 @@ export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:T
 : "${THOUGHTCOMM_MODEL_PATH:?Set THOUGHTCOMM_MODEL_PATH to a local cached Qwen3 snapshot}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
-# Slurm assigns the two allocated GPUs and sets CUDA_VISIBLE_DEVICES.
-unset THOUGHTCOMM_SINGLE_GPU
+# Slurm assigns the allocated GPU(s) and sets CUDA_VISIBLE_DEVICES.
+# Default to the validated one-A100 path; pass an empty value for a two-card run.
+export THOUGHTCOMM_SINGLE_GPU="${THOUGHTCOMM_SINGLE_GPU-1}"
+
 export THOUGHTCOMM_MODEL_DTYPE="float32"
 export THOUGHTCOMM_GRAD_CLIP="1"
 export THOUGHTCOMM_PREFIX_INIT_SCALE="0.005"
@@ -44,6 +46,6 @@ export THOUGHTCOMM_STATES_PATH="${THOUGHTCOMM_STATES_PATH:-artifacts/full_qwen3_
 export THOUGHTCOMM_AE_CKPT="${THOUGHTCOMM_AE_CKPT:-artifacts/full_qwen3_exp1/ae/ae.pt}"
 export THOUGHTCOMM_MASK_PATH="${THOUGHTCOMM_MASK_PATH:-artifacts/full_qwen3_exp1/structure/mask.pt}"
 export THOUGHTCOMM_ADAPTER_CKPT="${THOUGHTCOMM_ADAPTER_CKPT:-}"
-export THOUGHTCOMM_OVERRIDES="${THOUGHTCOMM_OVERRIDES:-model.attn_implementation=eager adapter.epochs=1}"
+export THOUGHTCOMM_OVERRIDES="${THOUGHTCOMM_OVERRIDES:-model.attn_implementation=sdpa adapter.epochs=1 adapter.grad_accum=1}"
 
 exec "${PYTHON_BIN}" scripts/run_adapter_2gpu_runtime.py
