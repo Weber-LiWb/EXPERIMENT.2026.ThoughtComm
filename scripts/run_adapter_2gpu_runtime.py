@@ -171,7 +171,16 @@ sys.argv = [
     mask_path,
 ]
 
-train_globals = runpy.run_path("scripts/train_adapter.py", run_name="thoughtcomm_train_adapter")
+# Runtime-only graph cleanup: keep the upstream file and objective unchanged,
+# but release step-local autograd references after the progress update.
+train_path = REPO / "scripts/train_adapter.py"
+train_source = train_path.read_text(encoding="utf-8")
+graph_marker = "            pbar.set_postfix(loss=float(loss.item()), sem=float(sem.item()), flu=float(flu.item()))" + chr(10)
+if train_source.count(graph_marker) != 1:
+    raise RuntimeError("upstream train_adapter.py progress marker changed")
+train_source = train_source.replace(graph_marker, graph_marker + "            del loss_sum, loss, prefixes, sem, flu, gen_emb" + chr(10), 1)
+train_globals = {}
+exec(compile(train_source, str(train_path), "exec"), train_globals)
 if stable_sampling:
     def stable_top_p_sample(logits, top_p, temperature):
         logits = logits.float()
