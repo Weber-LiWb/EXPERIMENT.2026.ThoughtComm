@@ -207,8 +207,16 @@ def main():
 
     states = torch.load(args.states_path, map_location="cpu").float()
     ae_sd = torch.load(args.ae_ckpt, map_location="cpu")
-    nz = int(ae_sd["enc.net.0.weight"].shape[0])
-    ae = SparseJacobianAutoEncoder(nh=states.shape[1], nz=nz, hidden=2048, depth=2)
+    enc_weight_keys = sorted(
+        (k for k in ae_sd if k.startswith("enc.net.") and k.endswith(".weight")),
+        key=lambda k: int(k.split(".")[2]),
+    )
+    if not enc_weight_keys:
+        raise RuntimeError("could not infer encoder dimensions from AE checkpoint")
+    nz = int(ae_sd[enc_weight_keys[-1]].shape[0])
+    hidden = int(ae_sd[enc_weight_keys[0]].shape[0])
+    depth = len(enc_weight_keys) - 1
+    ae = SparseJacobianAutoEncoder(nh=states.shape[1], nz=nz, hidden=hidden, depth=depth)
     ae.load_state_dict(ae_sd)
     ae.to(device).eval()
 
